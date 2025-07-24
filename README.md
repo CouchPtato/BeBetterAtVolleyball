@@ -53,8 +53,7 @@ streamlit run App.py
 
 ## 🖥️ Demo
 
-![App Demo](demo.gif)
-*Example: The app giving feedback on posture and form during a volleyball pass.*
+![App Demo](App_Demo.gif)
 
 ---
 
