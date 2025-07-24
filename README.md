@@ -6,6 +6,8 @@ Welcome to **BeBetterAtVolleyball** – your AI-powered assistant for improving 
 
 ## 📹 What does it do?
 
+![Home Page Screenshot](media/demo_screenshot.png)
+
 - **Upload a video** or **use your webcam** to record yourself performing a volleyball receive.
 - The app uses **MediaPipe** pose estimation to track your movements.
 - It analyzes key angles (knees, arms, back) and **highlights corrections** you can make for better form.
@@ -53,7 +55,7 @@ streamlit run App.py
 
 ## 🖥️ Demo
 
-![App Demo](App_Demo.gif)
+![App Demo](media/app_demo.gif)
 
 ---
 
