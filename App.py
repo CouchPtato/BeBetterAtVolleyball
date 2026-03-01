@@ -8,7 +8,6 @@ import collections
 GOOD_COLOR = (0, 215, 255)   # Volleyball yellow-blue
 BAD_COLOR = (255, 0, 0)      # Red for corrections
 CIRCLE_COLOR = (255, 255, 255)  # White joints
-
 FONT_SCALE = 0.5
 FONT_COLOR = (255, 215, 0)   # Yellow text
 FONT = cv2.FONT_HERSHEY_SIMPLEX
