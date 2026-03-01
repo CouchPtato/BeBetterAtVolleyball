@@ -1,61 +1,62 @@
 import streamlit as st
 import cv2
 import tempfile
-import mediapipe as mp
 import numpy as np
 import collections
+import mediapipe as mp
 
-GOOD_COLOR = (0, 215, 255)
-BAD_COLOR = (255, 0, 0)
-CIRCLE_COLOR = (255, 255, 255)
+from mediapipe.tasks.python import vision
+from mediapipe.tasks.python.core import base_options
+from mediapipe.framework.formats import landmark_pb2
+
+FONT = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SCALE = 0.5
 FONT_COLOR = (255, 215, 0)
-FONT = cv2.FONT_HERSHEY_SIMPLEX
+BAD_COLOR = (255, 0, 0)
+GOOD_COLOR = (0, 255, 0)
 
 angle_buffer = {
     'l_knee': collections.deque(maxlen=15),
     'r_knee': collections.deque(maxlen=15),
     'back': collections.deque(maxlen=15),
     'l_arm': collections.deque(maxlen=15),
-    'r_arm': collections.deque(maxlen=15)
+    'r_arm': collections.deque(maxlen=15),
 }
-
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(static_image_mode=False, model_complexity=1, enable_segmentation=False)
-mp_drawing = mp.solutions.drawing_utils
 
 def calculate_angle(a, b, c):
     a, b, c = np.array(a), np.array(b), np.array(c)
     radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - np.arctan2(a[1]-b[1], a[0]-b[0])
-    angle = np.abs(radians * 180.0 / np.pi)
-    if angle > 180:
-        angle = 360 - angle
-    return angle
+    angle = np.abs(radians * 180 / np.pi)
+    return 360 - angle if angle > 180 else angle
 
 def calculate_back_angle(shoulder, hip):
     vertical = [hip[0], hip[1] - 100]
     return calculate_angle(shoulder, hip, vertical)
 
+options = vision.PoseLandmarkerOptions(
+    base_options=base_options.BaseOptions(model_asset_path="pose_landmarker.task"),
+    running_mode=vision.RunningMode.VIDEO,
+    num_poses=1
+)
+landmarker = vision.PoseLandmarker.create_from_options(options)
+
 st.title("🏐 Volleyball Receive Analyzer")
-st.subheader("Your AI-powered coach for perfect passes!")
-st.sidebar.title("🏐 Volleyball Mode")
-st.sidebar.markdown("**Tip:** Use a side view for best tracking!")
-
-mode = st.radio("🏐 Choose Input Mode:", ["📁 Upload Video", "📷 Use Webcam"])
-
-uploaded_file = None
-if mode == "📁 Upload Video":
-    uploaded_file = st.file_uploader("📁 Upload a video", type=["mp4"])
-
+mode = st.radio("Choose Mode", ["Upload Video", "Webcam"])
 stframe = st.empty()
 
-if mode == "📷 Use Webcam" or uploaded_file is not None:
-    if mode == "📷 Use Webcam":
+uploaded_file = None
+if mode == "Upload Video":
+    uploaded_file = st.file_uploader("Upload video", type=["mp4"])
+
+if mode == "Webcam" or uploaded_file:
+    if mode == "Webcam":
         cap = cv2.VideoCapture(0)
     else:
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_file.read())
         cap = cv2.VideoCapture(tfile.name)
+
+    frame_id = 0
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -63,80 +64,52 @@ if mode == "📷 Use Webcam" or uploaded_file is not None:
             break
 
         frame = cv2.resize(frame, (800, 450))
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = pose.process(image)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        h, w, _ = image.shape
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        result = landmarker.detect_for_video(mp_image, frame_id)
+        frame_id += 1
+
         feedback = []
-        correction_parts = []
 
-        if results.pose_landmarks:
-            landmarks = results.pose_landmarks.landmark
+        if result.pose_landmarks:
+            lm = result.pose_landmarks[0]
+            h, w, _ = frame.shape
 
-            def pt(idx):
-                return [landmarks[idx].x * w, landmarks[idx].y * h]
+            def pt(i):
+                return [lm[i].x * w, lm[i].y * h]
 
             l_hip, l_knee, l_ankle = pt(23), pt(25), pt(27)
             r_hip, r_knee, r_ankle = pt(24), pt(26), pt(28)
-            l_shoulder, l_elbow, l_wrist = pt(11), pt(13), pt(15)
-            r_shoulder, r_elbow, r_wrist = pt(12), pt(14), pt(16)
+            l_sh, l_el, l_wr = pt(11), pt(13), pt(15)
+            r_sh, r_el, r_wr = pt(12), pt(14), pt(16)
 
-            l_knee_angle = calculate_angle(l_hip, l_knee, l_ankle)
-            r_knee_angle = calculate_angle(r_hip, r_knee, r_ankle)
-            l_arm_bend = calculate_angle(l_shoulder, l_elbow, l_wrist)
-            r_arm_bend = calculate_angle(r_shoulder, r_elbow, r_wrist)
-            back_angle = calculate_back_angle(l_shoulder, l_hip)
+            angle_buffer['l_knee'].append(calculate_angle(l_hip, l_knee, l_ankle))
+            angle_buffer['r_knee'].append(calculate_angle(r_hip, r_knee, r_ankle))
+            angle_buffer['l_arm'].append(calculate_angle(l_sh, l_el, l_wr))
+            angle_buffer['r_arm'].append(calculate_angle(r_sh, r_el, r_wr))
+            angle_buffer['back'].append(calculate_back_angle(l_sh, l_hip))
 
-            angle_buffer['l_knee'].append(l_knee_angle)
-            angle_buffer['r_knee'].append(r_knee_angle)
-            angle_buffer['back'].append(back_angle)
-            angle_buffer['l_arm'].append(l_arm_bend)
-            angle_buffer['r_arm'].append(r_arm_bend)
-
-            avg_l_knee = np.mean(angle_buffer['l_knee'])
-            avg_r_knee = np.mean(angle_buffer['r_knee'])
-            avg_back = np.mean(angle_buffer['back'])
-            avg_l_arm = np.mean(angle_buffer['l_arm'])
-            avg_r_arm = np.mean(angle_buffer['r_arm'])
-
-            if avg_l_knee > 120 and avg_r_knee > 120:
+            if np.mean(angle_buffer['l_knee']) > 120 and np.mean(angle_buffer['r_knee']) > 120:
                 feedback.append("Bend knees more")
-                correction_parts.append("LEG")
-            if avg_back < 30:
+            if np.mean(angle_buffer['back']) < 30:
                 feedback.append("Lean forward more")
-                correction_parts.append("TORSO")
-            if avg_l_arm < 150 and avg_r_arm < 150:
+            if np.mean(angle_buffer['l_arm']) < 150 and np.mean(angle_buffer['r_arm']) < 150:
                 feedback.append("Straighten arms")
-                correction_parts.append("ARM")
 
-            for start_idx, end_idx in mp_pose.POSE_CONNECTIONS:
-                start = landmarks[start_idx]
-                end = landmarks[end_idx]
-                color = (0, 255, 0)
+            proto = landmark_pb2.NormalizedLandmarkList()
+            proto.landmark.extend(lm)
+            mp.solutions.drawing_utils.draw_landmarks(
+                frame,
+                proto,
+                mp.solutions.pose.POSE_CONNECTIONS
+            )
 
-                if (
-                    ("LEG" in correction_parts and start_idx in [23,24,25,26,27,28] and end_idx in [23,24,25,26,27,28]) or
-                    ("TORSO" in correction_parts and start_idx in [11,12,23,24] and end_idx in [11,12,23,24]) or
-                    ("ARM" in correction_parts and start_idx in [11,12,13,14,15,16] and end_idx in [11,12,13,14,15,16])
-                ):
-                    color = BAD_COLOR
-
-                cv2.line(
-                    image,
-                    (int(start.x * w), int(start.y * h)),
-                    (int(end.x * w), int(end.y * h)),
-                    color,
-                    2
-                )
-
-            for lm in landmarks:
-                cv2.circle(image, (int(lm.x * w), int(lm.y * h)), 2, CIRCLE_COLOR, -1)
-
-        y_pos = 30
+        y = 30
         for f in feedback:
-            cv2.putText(image, f, (10, y_pos), FONT, FONT_SCALE, FONT_COLOR, 1, cv2.LINE_AA)
-            y_pos += 20
+            cv2.putText(frame, f, (10, y), FONT, FONT_SCALE, FONT_COLOR, 1)
+            y += 20
 
-        stframe.image(image, channels="RGB")
+        stframe.image(frame, channels="BGR")
 
     cap.release()
