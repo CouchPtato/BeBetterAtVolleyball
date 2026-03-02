@@ -17,11 +17,25 @@ Welcome to **BeBetterAtVolleyball** – your AI-powered assistant for improving 
 
 ## 🏐 Features
 
-- **Real-time posture analysis** for volleyball passing
-- **Feedback highlights**: Bend knees, straighten arms, lean forward, etc.
+- **Dual-Mode Skill Analysis**: Choose between **Receiving** and **Spiking** form analysis
+- **Real-time posture analysis** with AI-powered coaching
+- **Skill-Specific Feedback**: 
+  - **Receiving**: Knee bend, back angle, arm extension
+  - **Spiking**: Arm height, arm extension, approach power
+- **Live Metrics & Performance Rating**: Track your form with real-time calculations
 - **Streamlit interface** for a simple and interactive experience
-- **Upload or live webcam support**
-- **Volleyball colors and visuals** throughout the app
+- **Upload or live webcam support** for training anywhere
+- **Professional UI** with metric cards and visual style
+
+---
+
+## 🌐 Try It Online
+
+**No setup required!** Try the app right now:
+
+👉 **[https://volley-analyzer.onrender.com](https://volley-analyzer.onrender.com)**
+
+Simply visit the link, upload a video or use your webcam, and get instant feedback on your form!
 
 ---
 
@@ -48,8 +62,12 @@ streamlit run App.py
 
 ### 4. Use the app
 
-- Choose **Upload Video** to analyze a pre-recorded video, or **Use Webcam** for live feedback.
-- For best results, film yourself from the side while receiving/passing a volleyball.
+- Select your **Input Mode**: Upload a pre-recorded video or use your webcam
+- Choose your **Skill Type**: 
+  - **Receiving** (🤝): Analyze your receive/pass form
+  - **Spiking** (💥): Analyze your spiking technique
+- Review the **Form Standards** in the sidebar to understand correct form
+- For best results, film yourself **from the side** in good lighting
 
 ---
 
@@ -67,11 +85,26 @@ streamlit run App.py
 - [MediaPipe](https://google.github.io/mediapipe/) for pose estimation
 - **NumPy**, **collections** for calculations and data handling
 
----
+### General Process
+- **Pose Detection**: Uses MediaPipe to detect 33 body landmarks in real-time
+- **Angle Calculation**: Computes key angles (knees, arms, back, shoulders)
+- **Smoothing**: Applies a 15-frame buffer to reduce jitter and provide stable metrics
+- **Performance Rating**: Grades overall form as Excellent, Good, Needs Work, or Poor
 
-## 📄 How it works
+### Receiving Analysis
+- **Knee Bend**: Optimal range 90-120° for stability and power
+- **Back Angle**: Lean forward 30°+ for better positioning
+- **Arm Extension**: Keep arms extended 150°+ for maximum reach
 
-- Detects body landmarks with MediaPipe.
+### Spiking Analysis
+- **Arm Height**: Raise elbows above shoulder level for maximum reach
+- **Arm Extension**: Full arm extension (120°+) for power
+- **Knee Bend**: Lower values (130°-) for explosive jump approach
+
+### Visual Feedback
+- Skeleton joints highlighted in **green** (good form) or **red** (needs improvement)
+- Real-time metrics displayed alongside video feed
+- Performance rating with emoji indicators
 - Calculates angles for knees, arms, and back.
 - Uses a buffer to smooth out angle calculations.
 - Provides volleyball-specific feedback (e.g., "Bend knees more", "Straighten arms").
